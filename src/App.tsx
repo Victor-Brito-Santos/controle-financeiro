@@ -13,6 +13,7 @@ import Investments from "./components/Investments";
 import AnnualComparison from "./components/AnnualComparison";
 import Settings from "./components/Settings";
 import AddTransactionModal, { TransactionType, TransactionData } from "./components/AddTransactionModal";
+import { useFinance } from "./context/FinanceContext";
 
 type Page = "dashboard" | "monthly" | "categories" | "payments" | "installments" | "investments" | "annual" | "settings";
 
@@ -45,17 +46,69 @@ export default function App() {
     setModalOpen(true);
   };
 
-  const handleSave = (data: TransactionData) => {
-    console.log("Novo lançamento:", data);
-    // TODO: persist to state/store
+  const { addEntrada, addGastoFixo, addGastoVariavel, addParcelamento, loading, error } = useFinance();
+
+  const handleSave = async (data: TransactionData) => {
+    const dueDay = new Date(data.date + "T12:00:00").getDate();
+
+    try {
+      switch (data.type) {
+        case "entrada":
+          await addEntrada({ name: data.title, value: data.value, date: data.date, status: "recebido" });
+          break;
+        case "gasto-fixo":
+          await addGastoFixo({
+            name: data.title, dueDay, category: "outros",
+            paymentMethod: data.paymentMethod || "pix", value: data.value, paid: false,
+          });
+          break;
+        case "gasto-mes":
+          await addGastoVariavel({
+            name: data.title, date: data.date, category: "outros",
+            paymentMethod: data.paymentMethod || "pix", value: data.value, paid: false,
+          });
+          break;
+        case "parcelamento": {
+          const totalParcelas = data.installments || 1;
+          await addParcelamento({
+            name: data.title, totalParcelas, parcelaAtual: 1, category: "outros",
+            paymentMethod: data.paymentMethod || "pix",
+            valorParcela: data.value / totalParcelas, paid: false,
+          });
+          break;
+        }
+      }
+    } catch (err: any) {
+      alert("Não foi possível salvar no Supabase: " + (err?.message || "erro desconhecido"));
+    }
   };
 
   const currentItem = navItems.find(n => n.id === page);
 
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center bg-[var(--background)] text-[var(--muted-foreground)]">
+        <p className="text-sm font-medium">Carregando seus dados do Supabase...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-full items-center justify-center bg-[var(--background)] px-6">
+        <div className="max-w-md text-center space-y-2">
+          <p className="text-[var(--negative)] font-semibold">Não foi possível conectar ao Supabase</p>
+          <p className="text-sm text-[var(--muted-foreground)]">{error}</p>
+          <p className="text-xs text-[var(--muted-foreground)]">Confira as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no seu .env.local (ou nas variáveis de ambiente da Vercel) e se as tabelas foram criadas no Supabase.</p>
+        </div>
+      </div>
+    );
+  }
+
   const renderPage = () => {
     switch (page) {
       case "dashboard": return <Dashboard />;
-      case "monthly": return <MonthlyView month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} />;
+      case "monthly": return <MonthlyView month={month} year={year} onMonthChange={setMonth} onYearChange={setYear} onAddClick={openModal} />;
       case "categories": return <Categories />;
       case "payments": return <PaymentMethods />;
       case "installments": return <Installments />;

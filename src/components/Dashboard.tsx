@@ -5,39 +5,10 @@ import {
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend
 } from "recharts";
-import {
-  entradas, gastosVariaveis, gastosFixes, parcelamentos,
-  categories, formatCurrency
-} from "../data/mockData";
+import { categories, formatCurrency } from "../data/mockData";
+import { useFinance } from "../context/FinanceContext";
 
 const RADIAN = Math.PI / 180;
-
-const totalEntradas = entradas.filter(e => e.status === "recebido").reduce((s, e) => s + e.value, 0);
-const totalSaidasFixas = gastosFixes.reduce((s, e) => s + e.value, 0);
-const totalSaidasVar = gastosVariaveis.reduce((s, e) => s + e.value, 0);
-const totalParcelamentos = parcelamentos.reduce((s, p) => s + p.valorParcela, 0);
-const totalSaidas = totalSaidasFixas + totalSaidasVar + totalParcelamentos;
-const saldo = totalEntradas - totalSaidas;
-
-const catTotals = categories.map(cat => {
-  const fixo = gastosFixes.filter(g => g.category === cat.id).reduce((s, g) => s + g.value, 0);
-  const vari = gastosVariaveis.filter(g => g.category === cat.id).reduce((s, g) => s + g.value, 0);
-  const parc = parcelamentos.filter(p => p.category === cat.id).reduce((s, p) => s + p.valorParcela, 0);
-  return { ...cat, total: fixo + vari + parc };
-}).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
-
-const donutData1 = catTotals.slice(0, 6).map(c => ({ name: c.name, value: Math.round(c.total), color: c.color }));
-
-const donutData2 = [
-  { name: "Gastos Fixos", value: Math.round(totalSaidasFixas), color: "#2563EB" },
-  { name: "Parcelamentos", value: Math.round(totalParcelamentos), color: "#8B5CF6" },
-  { name: "Gastos Variáveis", value: Math.round(totalSaidasVar), color: "#F97316" },
-];
-
-const recentTransactions = [
-  ...gastosVariaveis.slice(-5).map(g => ({ ...g, type: "saida" as const })),
-  ...entradas.map(e => ({ ...e, type: "entrada" as const, category: "outros", paymentMethod: "pix", date: e.date })),
-].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 8);
 
 const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
   if (percent < 0.06) return null;
@@ -52,6 +23,35 @@ const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: an
 };
 
 export default function Dashboard() {
+  const { entradas, gastosVariaveis, gastosFixes, parcelamentos } = useFinance();
+
+  const totalEntradas = entradas.filter(e => e.status === "recebido").reduce((s, e) => s + e.value, 0);
+  const totalSaidasFixas = gastosFixes.reduce((s, e) => s + e.value, 0);
+  const totalSaidasVar = gastosVariaveis.reduce((s, e) => s + e.value, 0);
+  const totalParcelamentos = parcelamentos.reduce((s, p) => s + p.valorParcela, 0);
+  const totalSaidas = totalSaidasFixas + totalSaidasVar + totalParcelamentos;
+  const saldo = totalEntradas - totalSaidas;
+
+  const catTotals = categories.map(cat => {
+    const fixo = gastosFixes.filter(g => g.category === cat.id).reduce((s, g) => s + g.value, 0);
+    const vari = gastosVariaveis.filter(g => g.category === cat.id).reduce((s, g) => s + g.value, 0);
+    const parc = parcelamentos.filter(p => p.category === cat.id).reduce((s, p) => s + p.valorParcela, 0);
+    return { ...cat, total: fixo + vari + parc };
+  }).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
+
+  const donutData1 = catTotals.slice(0, 6).map(c => ({ name: c.name, value: Math.round(c.total), color: c.color }));
+
+  const donutData2 = [
+    { name: "Gastos Fixos", value: Math.round(totalSaidasFixas), color: "#2563EB" },
+    { name: "Parcelamentos", value: Math.round(totalParcelamentos), color: "#8B5CF6" },
+    { name: "Gastos Variáveis", value: Math.round(totalSaidasVar), color: "#F97316" },
+  ];
+
+  const recentTransactions = [
+    ...gastosVariaveis.slice(-5).map(g => ({ ...g, type: "saida" as const })),
+    ...entradas.map(e => ({ ...e, type: "entrada" as const, category: "outros", paymentMethod: "pix", date: e.date })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 8);
+
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Summary Cards */}

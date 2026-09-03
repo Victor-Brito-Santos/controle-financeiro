@@ -1,22 +1,30 @@
 import { useState } from "react";
-import { Plus, Check, ChevronDown } from "lucide-react";
+import { Plus, Check, ChevronDown, Trash2 } from "lucide-react";
 import {
-  entradas as entradasData, gastosFixes as fixosData,
-  gastosVariaveis as varData, parcelamentos as parcData,
   categories, paymentMethods, formatCurrency, months
 } from "../data/mockData";
 import { StatusBadge } from "./Dashboard";
+import { useFinance } from "../context/FinanceContext";
+import type { TransactionType } from "./AddTransactionModal";
 
 const tabs = ["Entradas", "Gastos Fixos", "Gastos do Mês", "Parcelamentos"] as const;
 
 export default function MonthlyView({
-  month, year, onMonthChange, onYearChange
+  month, year, onMonthChange, onYearChange, onAddClick
 }: {
   month: number; year: number;
   onMonthChange: (m: number) => void;
   onYearChange: (y: number) => void;
+  onAddClick?: (type: TransactionType) => void;
 }) {
   const [activeTab, setActiveTab] = useState<typeof tabs[number]>("Entradas");
+
+  const {
+    entradas: entradasData, gastosFixes: fixosData,
+    gastosVariaveis: varData, parcelamentos: parcData,
+    removeEntrada, removeGastoFixo, removeGastoVariavel, removeParcelamento,
+    toggleGastoFixoPago, toggleGastoVariavelPago, toggleParcelamentoPago,
+  } = useFinance();
 
   const totalEntradas = entradasData.reduce((s, e) => s + e.value, 0);
   const totalFixos = fixosData.reduce((s, g) => s + g.value, 0);
@@ -86,10 +94,11 @@ export default function MonthlyView({
                   <p className="text-sm font-semibold num text-[var(--positive)]">+{formatCurrency(e.value)}</p>
                   <StatusBadge status={e.status} />
                 </div>
+                <DeleteButton onClick={() => removeEntrada(e.id)} />
               </Row>
             ))}
           </div>
-          <AddRow label="Adicionar entrada" />
+          <AddRow label="Adicionar entrada" onClick={() => onAddClick?.("entrada")} />
         </Section>
       )}
 
@@ -110,14 +119,18 @@ export default function MonthlyView({
                     <p className="text-sm font-semibold num">{formatCurrency(g.value)}</p>
                     <StatusBadge status={g.paid ? "pago" : "pendente"} />
                   </div>
-                  <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center cursor-pointer transition-colors ${g.paid ? "bg-[var(--positive)] border-[var(--positive)]" : "border-[var(--border)]"}`}>
+                  <button
+                    onClick={() => toggleGastoFixoPago(g.id)}
+                    className={`w-6 h-6 rounded-md border-2 flex items-center justify-center cursor-pointer transition-colors ${g.paid ? "bg-[var(--positive)] border-[var(--positive)]" : "border-[var(--border)]"}`}
+                  >
                     {g.paid && <Check size={12} color="white" strokeWidth={3} />}
-                  </div>
+                  </button>
+                  <DeleteButton onClick={() => removeGastoFixo(g.id)} />
                 </Row>
               );
             })}
           </div>
-          <AddRow label="Adicionar gasto fixo" />
+          <AddRow label="Adicionar gasto fixo" onClick={() => onAddClick?.("gasto-fixo")} />
         </Section>
       )}
 
@@ -138,14 +151,18 @@ export default function MonthlyView({
                     <p className="text-sm font-semibold num">{formatCurrency(g.value)}</p>
                     <StatusBadge status={g.paid ? "pago" : "pendente"} />
                   </div>
-                  <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center cursor-pointer transition-colors ${g.paid ? "bg-[var(--positive)] border-[var(--positive)]" : "border-[var(--border)]"}`}>
+                  <button
+                    onClick={() => toggleGastoVariavelPago(g.id)}
+                    className={`w-6 h-6 rounded-md border-2 flex items-center justify-center cursor-pointer transition-colors ${g.paid ? "bg-[var(--positive)] border-[var(--positive)]" : "border-[var(--border)]"}`}
+                  >
                     {g.paid && <Check size={12} color="white" strokeWidth={3} />}
-                  </div>
+                  </button>
+                  <DeleteButton onClick={() => removeGastoVariavel(g.id)} />
                 </Row>
               );
             })}
           </div>
-          <AddRow label="Adicionar gasto" />
+          <AddRow label="Adicionar gasto" onClick={() => onAddClick?.("gasto-mes")} />
         </Section>
       )}
 
@@ -170,13 +187,18 @@ export default function MonthlyView({
                     <p className="text-sm font-semibold num">{formatCurrency(p.valorParcela)}</p>
                     <StatusBadge status={p.paid ? "pago" : "pendente"} />
                   </div>
-                  <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center cursor-pointer ${p.paid ? "bg-[var(--positive)] border-[var(--positive)]" : "border-[var(--border)]"}`}>
+                  <button
+                    onClick={() => toggleParcelamentoPago(p.id)}
+                    className={`w-6 h-6 rounded-md border-2 flex items-center justify-center cursor-pointer ${p.paid ? "bg-[var(--positive)] border-[var(--positive)]" : "border-[var(--border)]"}`}
+                  >
                     {p.paid && <Check size={12} color="white" strokeWidth={3} />}
-                  </div>
+                  </button>
+                  <DeleteButton onClick={() => removeParcelamento(p.id)} />
                 </Row>
               );
             })}
           </div>
+          <AddRow label="Adicionar parcelamento" onClick={() => onAddClick?.("parcelamento")} />
         </Section>
       )}
     </div>
@@ -216,10 +238,25 @@ function Row({ children }: { children: React.ReactNode }) {
   );
 }
 
-function AddRow({ label }: { label: string }) {
+function AddRow({ label, onClick }: { label: string; onClick?: () => void }) {
   return (
-    <button className="flex items-center gap-2 w-full px-5 py-3 text-sm text-[var(--primary)] font-semibold hover:bg-[var(--accent)] transition-colors border-t border-[var(--border)]">
+    <button
+      onClick={onClick}
+      className="flex items-center gap-2 w-full px-5 py-3 text-sm text-[var(--primary)] font-semibold hover:bg-[var(--accent)] transition-colors border-t border-[var(--border)]"
+    >
       <Plus size={16} /> {label}
+    </button>
+  );
+}
+
+function DeleteButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--muted-foreground)] hover:bg-red-50 hover:text-[var(--negative)] dark:hover:bg-red-950/40 transition-colors shrink-0"
+      aria-label="Excluir lançamento"
+    >
+      <Trash2 size={15} />
     </button>
   );
 }

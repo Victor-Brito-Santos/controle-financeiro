@@ -1,0 +1,10 @@
+{
+  "description": "This responsive web application seamlessly adapts to both desktop and mobile devices, providing users with an optimized browsing experience tailored to their needs.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
